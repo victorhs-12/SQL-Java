@@ -60,21 +60,20 @@ public class AlunoDAO {
 	}
 	
 	public void alterar(Aluno aluno) throws SQLException{
-		String sql = "UPDATE tb_alunos SET nome_aluno = ?, cpf = ?, email = ?, logradouro = ?, municipio = ?, uf = ?, campus = ?, periodo = ?, numero_celular = ?, nome_curso = ? WHERE pk_rgm = ?";
+		String sql = "UPDATE tb_alunos SET nome_aluno = ?, email = ?, logradouro = ?, municipio = ?, uf = ?, campus = ?, periodo = ?, numero_celular = ?, nome_curso = ? WHERE pk_rgm = ?";
 		
 		try(Connection conn = ConexaoBD.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
-			ps.setInt(1, aluno.getRgm());
-			ps.setString(2, aluno.getNome());
-			ps.setString(3, aluno.getCpf());
-			ps.setString(4, aluno.getEmail());
-			ps.setString(5, aluno.getLogradouro());
-			ps.setString(6, aluno.getMunicipio());
-			ps.setString(7, aluno.getUf());
-			ps.setString(8, aluno.getCampus());
-			ps.setString(9, aluno.getPeriodo());
-			ps.setString(11, aluno.getNumeroCelular());
-			ps.setString(12, aluno.getNomeCurso());
-			
+			ps.setString(1, aluno.getNome());
+	        ps.setString(2, aluno.getEmail());
+	        ps.setString(3, aluno.getLogradouro());
+	        ps.setString(4, aluno.getMunicipio());
+	        ps.setString(5, aluno.getUf());
+	        ps.setString(6, aluno.getCampus());
+	        ps.setString(7, aluno.getPeriodo());
+	        ps.setString(8, aluno.getNumeroCelular());
+	        ps.setString(9, aluno.getNomeCurso());
+	        ps.setInt(10, aluno.getRgm());
+	        
 			ps.executeUpdate();
 		}
 	}

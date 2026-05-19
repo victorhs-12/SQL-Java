@@ -50,14 +50,14 @@ public class NotaDAO {
 	}
 	
 	public void alterar(Nota nota) throws SQLException{
-		String sql = "UPDATE tb_notas SET disciplina = ?, semestre = ?, nota = ?, qtd_faltas = ? WHERE pk_nota = ?";
+		String sql = "UPDATE tb_notas SET nota = ?, qtd_faltas = ? WHERE fk_rgm = ? AND disciplina = ? AND semestre = ?";
 		
 		try(Connection conn = ConexaoBD.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)){
-			ps.setString(1, nota.getDisciplina());
-			ps.setString(2, nota.getSemestre());
-			ps.setDouble(3, nota.getNota());
-			ps.setInt(4, nota.getQtdFaltas());
-			ps.setInt(5, nota.getPkNota());
+			ps.setDouble(1, nota.getNota());
+	        ps.setInt(2, nota.getQtdFaltas());
+	        ps.setInt(3, nota.getFkRgm());
+	        ps.setString(4, nota.getDisciplina());
+	        ps.setString(5, nota.getSemestre());
 			
 			ps.executeUpdate();
 		}
