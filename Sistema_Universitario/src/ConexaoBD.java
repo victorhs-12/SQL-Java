@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 
+//conexão feita com os dados ocultados (config.properties)
 public class ConexaoBD {
     private static Connection conexao = null;
 
