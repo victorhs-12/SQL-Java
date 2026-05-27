@@ -1,6 +1,5 @@
-
-
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.text.MaskFormatter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -8,12 +7,6 @@ import java.awt.event.ActionListener;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-
-// Importe suas classes DAO e Model (ajuste o pacote conforme seu projeto)
-// import dao.AlunoDAO;
-// import dao.NotaDAO;
-// import model.Aluno;
-// import model.Nota;
 
 public class TelaAcademico extends JFrame {
 
@@ -31,8 +24,11 @@ public class TelaAcademico extends JFrame {
     private JTextField txtRgmNotas, txtNomeAlunoReadOnly, txtCursoAlunoReadOnly, txtFaltas;
     private JComboBox<String> cbDisciplina, cbSemestre, cbNota;
 
-    // Campos Boletim
-    private JTextArea txtBoletimArea;
+    // Campos Boletim (Refatorados para JTable)
+    private JTextField txtRgmBoletim;
+    private JLabel lblBoletimNome, lblBoletimRgm, lblBoletimCurso;
+    private JTable tabelaBoletim;
+    private DefaultTableModel modeloTabelaBoletim;
 
     // DAOs
     private AlunoDAO alunoDAO = new AlunoDAO();
@@ -249,11 +245,60 @@ public class TelaAcademico extends JFrame {
     }
 
     private void configurarAbaBoletim() {
-        abaBoletim = new JPanel(new BorderLayout());
-        txtBoletimArea = new JTextArea();
-        txtBoletimArea.setEditable(false);
-        txtBoletimArea.setFont(new Font("Monospaced", Font.BOLD, 14));
-        abaBoletim.add(new JScrollPane(txtBoletimArea), BorderLayout.CENTER);
+        // Implementação estruturada com JTable e cabeçalho dinâmico
+        abaBoletim = new JPanel(new BorderLayout(10, 10));
+
+        // Painel Superior de Busca
+        JPanel painelBuscaBoletim = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        painelBuscaBoletim.setBorder(BorderFactory.createTitledBorder("Pesquisa de Relatório Acadêmico"));
+        
+        painelBuscaBoletim.add(new JLabel("Informe o RGM:"));
+        txtRgmBoletim = new JTextField(15);
+        painelBuscaBoletim.add(txtRgmBoletim);
+        
+        JButton btnGerarBoletim = new JButton("Gerar Boletim");
+        painelBuscaBoletim.add(btnGerarBoletim);
+        
+        abaBoletim.add(painelBuscaBoletim, BorderLayout.NORTH);
+
+        // Painel Central (Informações do Aluno + Tabela)
+        JPanel painelCentroBoletim = new JPanel(new BorderLayout());
+        
+        // Cabeçalho com dados do Aluno
+        JPanel painelInfoAluno = new JPanel(new GridLayout(3, 1, 5, 5));
+        painelInfoAluno.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        lblBoletimRgm = new JLabel("RGM: ");
+        lblBoletimNome = new JLabel("Nome do Aluno: ");
+        lblBoletimCurso = new JLabel("Curso: ");
+        
+        lblBoletimRgm.setFont(new Font("Arial", Font.BOLD, 14));
+        lblBoletimNome.setFont(new Font("Arial", Font.BOLD, 14));
+        lblBoletimCurso.setFont(new Font("Arial", Font.BOLD, 14));
+        
+        painelInfoAluno.add(lblBoletimRgm);
+        painelInfoAluno.add(lblBoletimNome);
+        painelInfoAluno.add(lblBoletimCurso);
+        painelCentroBoletim.add(painelInfoAluno, BorderLayout.NORTH);
+
+        // Configuração do JTable (Estilo Planilha)
+        String[] colunas = {"Disciplina", "Semestre", "Média Final", "Faltas", "Status"};
+        modeloTabelaBoletim = new DefaultTableModel(colunas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Bloqueia edição direta na tabela
+            }
+        };
+        
+        tabelaBoletim = new JTable(modeloTabelaBoletim);
+        tabelaBoletim.setRowHeight(25); // Altura agradável para leitura
+        tabelaBoletim.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        tabelaBoletim.getTableHeader().setBackground(new Color(230, 230, 230));
+        
+        painelCentroBoletim.add(new JScrollPane(tabelaBoletim), BorderLayout.CENTER);
+        abaBoletim.add(painelCentroBoletim, BorderLayout.CENTER);
+
+        // Ação exclusiva da busca do boletim
+        btnGerarBoletim.addActionListener(e -> acaoGerarBoletim());
     }
 
     private void criarPainelBotoes() {
@@ -263,11 +308,13 @@ public class TelaAcademico extends JFrame {
         JButton btnAlterar = criarBotaoComIcone("Alterar", "edit.png");
         JButton btnConsultar = criarBotaoComIcone("Consultar", "search.png");
         JButton btnExcluir = criarBotaoComIcone("Excluir", "delete.png");
+        JButton btnLimpar = criarBotaoComIcone("Limpar", "clear.png");
 
         painelBotoes.add(btnSalvar);
         painelBotoes.add(btnAlterar);
         painelBotoes.add(btnConsultar);
         painelBotoes.add(btnExcluir);
+        painelBotoes.add(btnLimpar);
 
         add(painelBotoes, BorderLayout.SOUTH);
 
@@ -275,6 +322,7 @@ public class TelaAcademico extends JFrame {
         btnConsultar.addActionListener(e -> acaoConsultar());
         btnAlterar.addActionListener(e -> acaoAlterar());
         btnExcluir.addActionListener(e -> acaoExcluir());
+        btnLimpar.addActionListener(e -> limparCamposGlobais());
     }
 
     private JButton criarBotaoComIcone(String tooltip, String iconName) {
@@ -301,23 +349,25 @@ public class TelaAcademico extends JFrame {
     private void acaoSalvar() {
         try {
             int index = barraAbas.getSelectedIndex();
+            if (index == 3) {
+                JOptionPane.showMessageDialog(this, "Ações de salvamento não são aplicáveis na aba de Boletim.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
             if (index == 0 || index == 1) { 
                 Aluno aluno = extrairAlunoDoFormulario();
                 alunoDAO.salvar(aluno);
                 JOptionPane.showMessageDialog(this, "Aluno salvo com sucesso!");
-                
-                // Em caso de sucesso, libera os campos imutáveis caso o usuário queira inserir um novo aluno
-                txtCpf.setEditable(true);
-                txtDataNasc.setEditable(true);
-                txtCpf.setForeground(Color.BLACK);
-                txtDataNasc.setForeground(Color.BLACK);
+                limparCamposGlobais(); // Auto-limpeza após inserção
             } else if (index == 2) { 
                 Nota nota = extrairNotaDoFormulario();
                 notaDAO.salvar(nota);
                 JOptionPane.showMessageDialog(this, "Nota salva com sucesso!");
+                // Opcional: limpar apenas a nota inserida mantendo o RGM
+                cbNota.setSelectedIndex(0);
+                txtFaltas.setText("");
             }
         } catch (Exception ex) {
-            // Tratamento amigável para erro de Constraint do BD (CPF ou RGM duplicado)
             if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("duplicate entry")) {
                 JOptionPane.showMessageDialog(this, "Atenção: O RGM ou CPF informado já se encontra cadastrado no sistema.", "Dado Duplicado", JOptionPane.WARNING_MESSAGE);
             } else {
@@ -329,6 +379,12 @@ public class TelaAcademico extends JFrame {
     private void acaoConsultar() {
         try {
             int index = barraAbas.getSelectedIndex();
+            // Trava contra buscas fantasmas no Boletim
+            if (index == 3) {
+                JOptionPane.showMessageDialog(this, "Para consultar o boletim, utilize o botão 'Gerar Boletim' localizado no topo desta aba.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
             int rgm = Integer.parseInt(index == 2 ? txtRgmNotas.getText() : txtRgm.getText());
             
             Aluno aluno = alunoDAO.consultar(rgm);
@@ -338,8 +394,6 @@ public class TelaAcademico extends JFrame {
                 } else if (index == 2) {
                     txtNomeAlunoReadOnly.setText(aluno.getNome());
                     txtCursoAlunoReadOnly.setText(aluno.getNomeCurso());
-                } else if (index == 3) {
-                    gerarBoletim(aluno);
                 }
             } else {
                 JOptionPane.showMessageDialog(this, "Aluno não encontrado!");
@@ -354,12 +408,17 @@ public class TelaAcademico extends JFrame {
     private void acaoAlterar() {
         try {
             int index = barraAbas.getSelectedIndex();
+            if (index == 3) {
+                JOptionPane.showMessageDialog(this, "Ações de alteração não são aplicáveis na aba de Boletim.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
             if (index == 0 || index == 1) {
                 Aluno aluno = extrairAlunoDoFormulario();
                 alunoDAO.alterar(aluno);
                 JOptionPane.showMessageDialog(this, "Aluno alterado com sucesso!");
+                limparCamposGlobais();
             } else if (index == 2) {
-                // ATUALIZAÇÃO DE NOTA PELA CHAVE LÓGICA (RGM + Disciplina + Semestre)
                 Nota nota = extrairNotaDoFormulario();
                 notaDAO.alterar(nota);
                 JOptionPane.showMessageDialog(this, "Nota alterada com sucesso!");
@@ -371,19 +430,118 @@ public class TelaAcademico extends JFrame {
 
     private void acaoExcluir() {
         try {
+            int index = barraAbas.getSelectedIndex();
+            if (index == 3) {
+                JOptionPane.showMessageDialog(this, "Ações de exclusão não são aplicáveis na aba de Boletim.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
             int rgm = Integer.parseInt(txtRgm.getText());
             int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir o aluno RGM " + rgm + " e todas as suas notas?", "Confirmação", JOptionPane.YES_NO_OPTION);
             
             if (confirm == JOptionPane.YES_OPTION) {
                 alunoDAO.excluir(rgm);
                 JOptionPane.showMessageDialog(this, "Aluno excluído com sucesso!");
+                limparCamposGlobais();
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Erro ao excluir: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    // --- Métodos Auxiliares de Extração e Preenchimento ---
+    private void acaoGerarBoletim() {
+        try {
+            if (txtRgmBoletim.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Por favor, informe um RGM.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            int rgm = Integer.parseInt(txtRgmBoletim.getText().trim());
+            Aluno aluno = alunoDAO.consultar(rgm);
+            
+            if (aluno != null) {
+                // Atualiza o Cabeçalho
+                lblBoletimRgm.setText("RGM: " + aluno.getRgm());
+                lblBoletimNome.setText("Nome do Aluno: " + aluno.getNome());
+                lblBoletimCurso.setText("Curso: " + aluno.getNomeCurso());
+                
+                // Limpa a tabela antes de popular
+                modeloTabelaBoletim.setRowCount(0);
+                
+                // Busca as notas e popula o JTable
+                List<Nota> notas = notaDAO.consultarporAluno(aluno.getRgm());
+                if (notas.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Nenhuma nota cadastrada para este aluno.", "Informação", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    for (Nota n : notas) {
+                        // Regra visual de Status: Aprovado se Nota >= 6.0
+                        String status = (n.getNota() >= 6.0) ? "Aprovado" : "Reprovado";
+                        
+                        Object[] linha = {
+                            n.getDisciplina(),
+                            n.getSemestre(),
+                            String.format("%.1f", n.getNota()),
+                            n.getQtdFaltas(),
+                            status
+                        };
+                        modeloTabelaBoletim.addRow(linha);
+                    }
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Nenhum aluno encontrado com este RGM.");
+                limparCamposBoletim();
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "O RGM deve conter apenas números.", "Erro de Validação", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao gerar boletim: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // --- Métodos Auxiliares de Extração e Limpeza ---
+
+    private void limparCamposGlobais() {
+        // Limpando Aba 1: Dados Pessoais
+        txtRgm.setText("");
+        txtNome.setText("");
+        txtDataNasc.setValue(null); txtDataNasc.setText("");
+        txtCpf.setValue(null); txtCpf.setText("");
+        txtEmail.setText("");
+        txtEndereco.setText("");
+        txtCelular.setValue(null); txtCelular.setText("");
+        txtMunicipio.setText("");
+        cbUf.setSelectedIndex(0);
+
+        // Destravando os campos imutáveis para um novo cadastro
+        txtCpf.setEditable(true);
+        txtDataNasc.setEditable(true);
+        txtCpf.setForeground(Color.BLACK);
+        txtDataNasc.setForeground(Color.BLACK);
+
+        // Limpando Aba 2: Curso
+        cbCurso.setSelectedIndex(0);
+        cbCampus.setSelectedIndex(0);
+        grupoPeriodo.clearSelection();
+
+        // Limpando Aba 3: Notas e Faltas
+        txtRgmNotas.setText("");
+        txtNomeAlunoReadOnly.setText("deverá mostrar o nome do aluno");
+        txtCursoAlunoReadOnly.setText("deverá mostrar o curso do aluno");
+        cbDisciplina.setSelectedIndex(0);
+        cbSemestre.setSelectedIndex(0);
+        cbNota.setSelectedIndex(0);
+        txtFaltas.setText("");
+
+        limparCamposBoletim();
+    }
+
+    private void limparCamposBoletim() {
+        if (txtRgmBoletim != null) txtRgmBoletim.setText("");
+        if (lblBoletimRgm != null) lblBoletimRgm.setText("RGM: ");
+        if (lblBoletimNome != null) lblBoletimNome.setText("Nome do Aluno: ");
+        if (lblBoletimCurso != null) lblBoletimCurso.setText("Curso: ");
+        if (modeloTabelaBoletim != null) modeloTabelaBoletim.setRowCount(0); // Esvazia a tabela
+    }
 
     private Aluno extrairAlunoDoFormulario() {
         Aluno a = new Aluno();
@@ -423,8 +581,6 @@ public class TelaAcademico extends JFrame {
         else if ("Vespertino".equals(a.getPeriodo())) rbVespertino.setSelected(true);
         else if ("Noturno".equals(a.getPeriodo())) rbNoturno.setSelected(true);
 
-        // REGRA DE IMUTABILIDADE APLICADA AQUI
-        // Trava os campos após a consulta para evitar edições indevidas antes do UPDATE
         txtCpf.setEditable(false);
         txtDataNasc.setEditable(false);
         txtCpf.setForeground(Color.GRAY);
@@ -439,32 +595,6 @@ public class TelaAcademico extends JFrame {
         n.setNota(Double.parseDouble(cbNota.getSelectedItem().toString().replace(",", ".")));
         n.setQtdFaltas(Integer.parseInt(txtFaltas.getText().trim()));
         return n;
-    }
-
-    private void gerarBoletim(Aluno aluno) throws Exception {
-        StringBuilder sb = new StringBuilder();
-        sb.append("\n =====================================================\n");
-        sb.append("                 BOLETIM ACADÊMICO UNICID             \n");
-        sb.append(" =====================================================\n\n");
-        sb.append("  • RGM: ").append(aluno.getRgm()).append("\n");
-        sb.append("  • Nome do Aluno: ").append(aluno.getNome()).append("\n");
-        sb.append("  • Curso Acadêmico: ").append(aluno.getNomeCurso()).append("\n");
-        sb.append("  ---------------------------------------------------\n");
-
-        List<Nota> notas = notaDAO.consultarporAluno(aluno.getRgm());
-        if (notas.isEmpty()) {
-            sb.append("  [Nenhuma nota cadastrada para este aluno]\n");
-        } else {
-            for (Nota n : notas) {
-                sb.append("  • Disciplina: ").append(n.getDisciplina())
-                  .append(" (").append(n.getSemestre()).append(")\n");
-                sb.append("  • Média Final: ").append(n.getNota()).append("\n");
-                sb.append("  • Faltas Acumuladas: ").append(n.getQtdFaltas()).append("\n");
-                sb.append("  ---------------------------------------------------\n");
-            }
-        }
-        sb.append(" =====================================================");
-        txtBoletimArea.setText(sb.toString());
     }
 
     public static void main(String[] args) {
